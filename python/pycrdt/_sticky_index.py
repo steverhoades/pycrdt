@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, TypeAlias
 
 from ._pycrdt import StickyIndex as _StickyIndex
 from ._pycrdt import decode_sticky_index, get_sticky_index_from_json_string
@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from pycrdt import Transaction
 
     from ._base import Sequence
+    from ._xml import _XmlBaseMixin
+
+    Indexed: TypeAlias = Sequence | _XmlBaseMixin
 
 
 class Assoc(IntEnum):
@@ -31,7 +34,7 @@ class StickyIndex:
     """
 
     _sticky_index: _StickyIndex
-    _sequence: Sequence | None = None
+    _sequence: Indexed | None = None
 
     def get_index(self, transaction: Transaction | None = None) -> int:
         """
@@ -87,12 +90,14 @@ class StickyIndex:
         return json.loads(self._sticky_index.to_json_string())
 
     @classmethod
-    def new(cls, sequence: Sequence, index: int, assoc: Assoc) -> Self:
+    def new(cls, sequence: Indexed, index: int, assoc: Assoc) -> Self:
         """
         Create a sticky index before or after the specified index.
 
         Args:
-            sequence: The [Array][pycrdt.Array] or [Text][pycrdt.Text] to get the sticky index from.
+            sequence: The [Array][pycrdt.Array], [Text][pycrdt.Text], [XmlText][pycrdt.XmlText],
+                [XmlElement][pycrdt.XmlElement] or [XmlFragment][pycrdt.XmlFragment] to get the
+                sticky index from.
             index: The index at which the sticky index should remain.
             assoc: The [Assoc][pycrdt.Assoc] the sticky index should be associated
                 with (before or after).
@@ -105,13 +110,13 @@ class StickyIndex:
             return self
 
     @classmethod
-    def decode(cls, data: bytes, sequence: Sequence | None = None) -> Self:
+    def decode(cls, data: bytes, sequence: Indexed | None = None) -> Self:
         """
         Create the sticky index from its binary representation.
 
         Args:
             data: The binary data to get the sticky index from.
-            sequence: The [Array][pycrdt.Array] or [Text][pycrdt.Text] the sticky index belongs to.
+            sequence: The shared type the sticky index belongs to.
                 If not provided, a [Transaction][pycrdt.Transaction] will be needed when getting
                 the index.
 
@@ -122,13 +127,13 @@ class StickyIndex:
         return self
 
     @classmethod
-    def from_json(cls, data: dict, sequence: Sequence | None = None) -> Self:
+    def from_json(cls, data: dict, sequence: Indexed | None = None) -> Self:
         """
         Create a sticky index from its JSON representation.
 
         Args:
             data: The JSON dictionary to get the sticky index from.
-            sequence: The [Array][pycrdt.Array] or [Text][pycrdt.Text] the sticky index belongs to.
+            sequence: The shared type the sticky index belongs to.
                 If not provided, a [Transaction][pycrdt.Transaction] will be needed when getting
                 the index.
 

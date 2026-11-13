@@ -1,5 +1,5 @@
 import pytest
-from pycrdt import Array, Doc, Map, Text, XmlElement, XmlFragment, XmlText
+from pycrdt import Array, Assoc, Doc, Map, StickyIndex, Text, XmlElement, XmlFragment, XmlText
 
 
 def test_plain_text():
@@ -572,3 +572,90 @@ def test_children_replace_last(xml_parent, make_value):
     assert xml_parent.children[1] != old_last
     if not isinstance(value, str):
         assert xml_parent.children[1] == value
+
+
+def _paragraph(doc: Doc, text: str) -> XmlText:
+    frag = doc.get("prosemirror", type=XmlFragment)
+    paragraph = frag.children.append(XmlElement("paragraph"))
+    return paragraph.children.append(XmlText(text))
+
+
+@pytest.mark.parametrize("serialize", ["to_json", "encode"])
+def test_xml_text_sticky_index(serialize: str):
+    doc0 = Doc()
+    doc1 = Doc()
+    text0 = _paragraph(doc0, "the fee applies")
+    doc1.apply_update(doc0.get_update())
+    text1 = doc1.get("prosemirror", type=XmlFragment).children[0].children[0]
+
+    start = text0.sticky_index(4, Assoc.AFTER)
+    end = text0.sticky_index(7, Assoc.BEFORE)
+    assert start.assoc == Assoc.AFTER
+    assert end.assoc == Assoc.BEFORE
+    if serialize == "to_json":
+        start = StickyIndex.from_json(start.to_json(), text0)
+        end = StickyIndex.from_json(end.to_json(), text0)
+    else:
+        start = StickyIndex.decode(start.encode(), text0)
+        end = StickyIndex.decode(end.encode(), text0)
+
+    text1.insert(0, "Patients see ")
+    text1.insert(len("Patients see the fee"), " when it")
+    doc0.apply_update(doc1.get_update())
+
+    assert str(text0) == "Patients see the fee when it applies"
+    assert str(text0)[start.get_index() : end.get_index()] == "fee"
+
+
+def test_xml_text_sticky_index_assoc_at_an_insertion():
+    doc = Doc()
+    text = _paragraph(doc, "ab")
+    before = text.sticky_index(1, Assoc.BEFORE)
+    after = text.sticky_index(1, Assoc.AFTER)
+
+    text.insert(1, "X")
+
+    assert before.get_index() == 1
+    assert after.get_index() == 2
+
+
+def test_xml_text_sticky_index_resolves_in_another_doc():
+    doc0 = Doc()
+    text0 = _paragraph(doc0, "the fee applies")
+    data = text0.sticky_index(4, Assoc.AFTER).encode()
+
+    doc1 = Doc()
+    doc1.apply_update(doc0.get_update())
+    text1 = doc1.get("prosemirror", type=XmlFragment).children[0].children[0]
+    text1.insert(0, ">> ")
+    sticky_index = StickyIndex.decode(data)
+
+    with doc1.transaction() as txn:
+        assert sticky_index.get_index(txn) == 7
+
+
+@pytest.mark.parametrize("container", ["fragment", "element"])
+def test_xml_children_sticky_index(container: str):
+    doc = Doc()
+    frag = doc.get("prosemirror", type=XmlFragment)
+    parent = frag if container == "fragment" else frag.children.append(XmlElement("list"))
+    parent.children.append(XmlElement("first"))
+    parent.children.append(XmlElement("second"))
+    sticky_index = parent.sticky_index(1, Assoc.AFTER)
+
+    parent.children.insert(0, XmlElement("zeroth"))
+
+    index = sticky_index.get_index()
+    assert index == 2
+    assert parent.children[index].tag == "second"
+
+
+def test_xml_sticky_index_out_of_range():
+    doc = Doc()
+    text = _paragraph(doc, "ab")
+    frag = doc.get("prosemirror", type=XmlFragment)
+
+    with pytest.raises(IndexError):
+        text.sticky_index(3)
+    with pytest.raises(IndexError):
+        frag.sticky_index(2)

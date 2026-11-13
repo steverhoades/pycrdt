@@ -7,6 +7,7 @@ from ._pycrdt import XmlElement as _XmlElement
 from ._pycrdt import XmlEvent as _XmlEvent
 from ._pycrdt import XmlFragment as _XmlFragment
 from ._pycrdt import XmlText as _XmlText
+from ._sticky_index import Assoc, StickyIndex
 
 if TYPE_CHECKING:
     from typing import Any, Iterable, Mapping, Sized, TypeVar
@@ -68,6 +69,29 @@ class _XmlBaseMixin(BaseType):
 
     def __hash__(self) -> int:
         return hash(self.integrated)
+
+    def sticky_index(self, index: int, assoc: Assoc = Assoc.AFTER) -> StickyIndex:
+        """
+        A permanent position that sticks to the same place even when
+        concurrent updates are made.
+
+        In an [XmlText][pycrdt.XmlText] the index is a position in its text.
+        In an [XmlFragment][pycrdt.XmlFragment] or an [XmlElement][pycrdt.XmlElement]
+        it is a position among its children.
+
+        Args:
+            index: The index at which to stick.
+            assoc: The [Assoc][pycrdt.Assoc] specifying whether to stick to the location
+                before or after the index.
+
+        Returns:
+            A [StickyIndex][pycrdt.StickyIndex] that can be used to retrieve the index after
+            an update was applied.
+
+        Raises:
+            IndexError: The index is out of range.
+        """
+        return StickyIndex.new(self, index, assoc)
 
 
 class _XmlFragmentTraitMixin(_XmlBaseMixin):

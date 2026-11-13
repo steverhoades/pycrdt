@@ -248,6 +248,9 @@ class XmlFragment:
     def get_string(self, txn: Transaction) -> str:
         """Returns a text representation of the current shared XML."""
 
+    def sticky_index(self, txn: Transaction, index: int, assoc: int) -> StickyIndex:
+        """Returns a sticky index at the given index, or raises IndexError if out of range."""
+
     def len(self, txn: Transaction) -> int:
         """Returns the numer of children of the current shared XML."""
 
@@ -281,6 +284,9 @@ class XmlElement:
 
     def get_string(self, txn: Transaction) -> str:
         """Returns a text representation of the current shared XML."""
+
+    def sticky_index(self, txn: Transaction, index: int, assoc: int) -> StickyIndex:
+        """Returns a sticky index at the given index, or raises IndexError if out of range."""
 
     def len(self, txn: Transaction) -> int:
         """Returns the numer of children of the current shared XML."""
@@ -330,6 +336,9 @@ class XmlText:
 
     def get_string(self, txn: Transaction) -> str:
         """Returns a text representation of the current shared XML."""
+
+    def sticky_index(self, txn: Transaction, index: int, assoc: int) -> StickyIndex:
+        """Returns a sticky index at the given index, or raises IndexError if out of range."""
 
     def attributes(self, txn: Transaction) -> list[tuple[str, str]]:
         """Gets all attributes, as a list of `(key, value)` tuples."""

@@ -1,4 +1,5 @@
 use crate::thread_affinity::{CallbackPtr, CallbackScope, CallbackLifetime, ThreadAffinity};
+use pyo3::exceptions::PyIndexError;
 use pyo3::prelude::*;
 use pyo3::IntoPyObjectExt;
 use pyo3::types::{PyBool, PyDict, PyIterator, PyList, PyString, PyTuple};
@@ -9,8 +10,10 @@ use yrs::{
     ArrayPrelim,
     MapPrelim,
     TextPrelim,
+    Assoc,
     DeepObservable,
     GetString as _,
+    IndexedSequence as _,
     Observable as _,
     Text as _,
     TransactionMut,
@@ -24,6 +27,7 @@ use yrs::{
     XmlTextRef
 };
 
+use crate::sticky_index::StickyIndex;
 use crate::subscription::Subscription;
 use crate::type_conversions::{events_into_py, py_to_any, py_to_attrs, EntryChangeWrapper, ToPython};
 use crate::transaction::Transaction;
@@ -61,6 +65,26 @@ macro_rules! impl_xml_methods {
                 let t1 = t0.as_mut().unwrap();
                 let t = t1.as_ref();
                 Ok(self.$inner.get_string(t))
+            }
+
+            fn sticky_index<'py>(
+                &self,
+                py: Python<'py>,
+                txn: &mut Transaction,
+                index: u32,
+                assoc: i8,
+            ) -> PyResult<Py<StickyIndex>> {
+                let mut t0 = txn.transaction()?;
+                let t1 = t0.as_mut().unwrap();
+                let t = t1.as_ref();
+                let assoc = match assoc {
+                    0 => Assoc::After,
+                    _ => Assoc::Before,
+                };
+                match self.$inner.sticky_index(t, index, assoc) {
+                    Some(sticky_index) => Py::new(py, StickyIndex::from(Some(sticky_index))),
+                    None => Err(PyIndexError::new_err("Index out of range")),
+                }
             }
 
             fn len(&self, txn: &mut Transaction) -> PyResult<u32> {
